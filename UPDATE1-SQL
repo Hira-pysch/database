@@ -1,0 +1,146 @@
+CREATE DATABASE COLS;
+
+USE COLS;
+
+
+-- 1. USERS TABLE
+CREATE TABLE IF NOT EXISTS Users (
+    User_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    First_name VARCHAR(100) NOT NULL,
+    Last_name VARCHAR(100) NOT NULL,
+    Email VARCHAR(150) UNIQUE NOT NULL,
+    Password_hash VARCHAR(255) NOT NULL,
+    role ENUM('Admin', 'Teacher', 'Student') NOT NULL,
+    Contact_number VARCHAR(15),
+    is_active TINYINT(1) DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_Email (Email),
+    INDEX idx_role (role)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 2. CLASSES TABLE
+CREATE TABLE IF NOT EXISTS Classes (
+    Class_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    Class_name VARCHAR(100) NOT NULL,
+    Grade_level VARCHAR(50) NOT NULL,
+    Section VARCHAR(10) NOT NULL,
+    Teacher_id INT,
+    capacity INT DEFAULT 50,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_class (Grade_level, Section),
+    INDEX idx_Teacher_id (Teacher_id),
+    FOREIGN KEY (Teacher_id) REFERENCES Users(User_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 3. TEACHERS TABLE
+CREATE TABLE IF NOT EXISTS Teachers (
+    Teacher_id INT NOT NULL PRIMARY KEY,
+    User_id INT UNIQUE NOT NULL,
+    Specialization VARCHAR(100),
+    Department VARCHAR(100),
+    Primary_class_id INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_User_id (User_id),
+    FOREIGN KEY (User_id) REFERENCES Users(User_id) ON DELETE CASCADE,
+    FOREIGN KEY (Primary_class_id) REFERENCES Classes(Class_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 4. STUDENTS TABLE
+CREATE TABLE IF NOT EXISTS Students (
+    Student_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    User_id INT UNIQUE NOT NULL,
+    Class_id INT NOT NULL,
+    Roll_number INT UNIQUE,
+    level ENUM('Senior High', 'Tertiary') NOT NULL,
+    Contact VARCHAR(15),
+    Student_email VARCHAR(150),
+    Date_of_birth DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_User_id (User_id),
+    INDEX idx_Class_id (Class_id),
+    FOREIGN KEY (User_id) REFERENCES Users(User_id) ON DELETE CASCADE,
+    FOREIGN KEY (Class_id) REFERENCES Classes(Class_id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 5. ATTENDANCE TABLE
+CREATE TABLE IF NOT EXISTS Attendance (
+    Attendance_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    Student_id INT NOT NULL,
+    Class_id INT NOT NULL,
+    Attendance_date DATE NOT NULL,
+    status ENUM('Present', 'Absent', 'Late') NOT NULL,
+    marked_by INT,
+    remarks VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_attendance (Student_id, Class_id, Attendance_date),
+    INDEX idx_Attendance_date (Attendance_date),
+    INDEX idx_Class_id (Class_id),
+    FOREIGN KEY (Student_id) REFERENCES Students(Student_id) ON DELETE CASCADE,
+    FOREIGN KEY (Class_id) REFERENCES Classes(Class_id) ON DELETE CASCADE,
+    FOREIGN KEY (marked_by) REFERENCES Users(User_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 6. TEACHER_CLASSES TABLE (Many-to-Many)
+CREATE TABLE IF NOT EXISTS Teacher_Classes (
+    TC_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    Teacher_id INT NOT NULL,
+    Class_id INT NOT NULL,
+    subject VARCHAR(100),
+    assigned_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_Teacher_class (Teacher_id, Class_id),
+    INDEX idx_Teacher_id (Teacher_id),
+    INDEX idx_Class_id (Class_id),
+    FOREIGN KEY (Teacher_id) REFERENCES Users(User_id) ON DELETE CASCADE,
+    FOREIGN KEY (Class_id) REFERENCES Classes(Class_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 7. ATTENDANCE_REPORTS TABLE
+CREATE TABLE IF NOT EXISTS Attendance_Reports (
+    Report_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    Student_id INT NOT NULL,
+    Class_id INT NOT NULL,
+    month INT,
+    year INT,
+    total_days INT,
+    present_days INT,
+    absent_days INT,
+    late_days INT,
+    attendance_percentage DECIMAL(5,2),
+    generated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_report (Student_id, Class_id, month, year),
+    INDEX idx_Class_id (Class_id),
+    FOREIGN KEY (Student_id) REFERENCES Students(Student_id) ON DELETE CASCADE,
+    FOREIGN KEY (Class_id) REFERENCES Classes(Class_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 8. PASSWORD_RESETS TABLE
+CREATE TABLE IF NOT EXISTS Password_Resets (
+    reset_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    User_id INT NOT NULL,
+    reset_token VARCHAR(255) UNIQUE NOT NULL,
+    token_expiry DATETIME NOT NULL,
+    is_used TINYINT(1) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_User_id (User_id),
+    INDEX idx_reset_token (reset_token),
+    FOREIGN KEY (User_id) REFERENCES Users(User_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 9. ADMIN_LOGS TABLE
+CREATE TABLE IF NOT EXISTS Admin_Logs (
+    log_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    Admin_id INT,
+    action VARCHAR(255),
+    table_name VARCHAR(100),
+    record_id INT,
+    old_values TEXT,
+    new_values TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_created_at (created_at),
+    FOREIGN KEY (Admin_id) REFERENCES Users(User_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
