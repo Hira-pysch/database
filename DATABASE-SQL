@@ -1,0 +1,197 @@
+-- Create Database (if not exists)
+
+create database monitoring_db;
+USE monitoring_db;
+
+-- ============================================
+-- 1. USERS TABLE (All user types)
+-- ============================================
+CREATE TABLE IF NOT EXISTS users (
+    user_id INT PRIMARY KEY AUTO_INCREMENT,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    email VARCHAR(150) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role ENUM('admin', 'teacher', 'student') NOT NULL,
+    contact_number VARCHAR(15),
+    is_active TINYINT(1) DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_email (email),
+    INDEX idx_role (role)
+);
+
+-- ============================================
+-- 2. CLASSES TABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS classes (
+    class_id INT PRIMARY KEY AUTO_INCREMENT,
+    class_name VARCHAR(100) NOT NULL,
+    grade_level VARCHAR(50) NOT NULL,
+    section VARCHAR(10) NOT NULL,
+    teacher_id INT,
+    capacity INT DEFAULT 50,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (teacher_id) REFERENCES users(user_id) ON DELETE SET NULL,
+    UNIQUE KEY unique_class (grade_level, section),
+    INDEX idx_teacher_id (teacher_id)
+);
+
+-- ============================================
+-- 3. TEACHERS TABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS teachers (
+    teacher_id INT PRIMARY KEY,
+    user_id INT UNIQUE NOT NULL,
+    specialization VARCHAR(100),
+    qualification VARCHAR(100),
+    experience_years INT,
+    department VARCHAR(100),
+    primary_class_id INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (primary_class_id) REFERENCES classes(class_id) ON DELETE SET NULL,
+    INDEX idx_user_id (user_id)
+);
+
+-- ============================================
+-- 4. STUDENTS TABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS students (
+    student_id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT UNIQUE NOT NULL,
+    class_id INT NOT NULL,
+    roll_number INT UNIQUE,
+    level ENUM('primary', 'secondary') NOT NULL,
+    contact VARCHAR(15),
+    student_email VARCHAR(150),
+    date_of_birth DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (class_id) REFERENCES classes(class_id) ON DELETE RESTRICT,
+    INDEX idx_user_id (user_id),
+    INDEX idx_class_id (class_id)
+);
+
+-- ============================================
+-- 5. ATTENDANCE TABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS attendance (
+    attendance_id INT PRIMARY KEY AUTO_INCREMENT,
+    student_id INT NOT NULL,
+    class_id INT NOT NULL,
+    attendance_date DATE NOT NULL,
+    status ENUM('present', 'absent', 'late', 'leave') NOT NULL,
+    marked_by INT,
+    remarks VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE,
+    FOREIGN KEY (class_id) REFERENCES classes(class_id) ON DELETE CASCADE,
+    FOREIGN KEY (marked_by) REFERENCES users(user_id) ON DELETE SET NULL,
+    UNIQUE KEY unique_attendance (student_id, class_id, attendance_date),
+    INDEX idx_attendance_date (attendance_date),
+    INDEX idx_class_id (class_id)
+);
+
+-- ============================================
+-- 6. TEACHER_CLASSES TABLE (Many-to-Many)
+-- ============================================
+CREATE TABLE IF NOT EXISTS teacher_classes (
+    tc_id INT PRIMARY KEY AUTO_INCREMENT,
+    teacher_id INT NOT NULL,
+    class_id INT NOT NULL,
+    subject VARCHAR(100),
+    assigned_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (teacher_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (class_id) REFERENCES classes(class_id) ON DELETE CASCADE,
+    UNIQUE KEY unique_teacher_class (teacher_id, class_id),
+    INDEX idx_teacher_id (teacher_id),
+    INDEX idx_class_id (class_id)
+);
+
+-- ============================================
+-- 7. ATTENDANCE_REPORTS TABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS attendance_reports (
+    report_id INT PRIMARY KEY AUTO_INCREMENT,
+    student_id INT NOT NULL,
+    class_id INT NOT NULL,
+    month INT,
+    year INT,
+    total_days INT,
+    present_days INT,
+    absent_days INT,
+    late_days INT,
+    attendance_percentage DECIMAL(5,2),
+    generated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE,
+    FOREIGN KEY (class_id) REFERENCES classes(class_id) ON DELETE CASCADE,
+    UNIQUE KEY unique_report (student_id, class_id, month, year),
+    INDEX idx_class_id (class_id)
+);
+
+-- ============================================
+-- 8. PASSWORD_RESETS TABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS password_resets (
+    reset_id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    reset_token VARCHAR(255) UNIQUE NOT NULL,
+    token_expiry DATETIME NOT NULL,
+    is_used TINYINT(1) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    INDEX idx_user_id (user_id),
+    INDEX idx_reset_token (reset_token)
+);
+
+-- ============================================
+-- 9. ADMIN_LOGS TABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS admin_logs (
+    log_id INT PRIMARY KEY AUTO_INCREMENT,
+    admin_id INT,
+    action VARCHAR(255),
+    table_name VARCHAR(100),
+    record_id INT,
+    old_values JSON,
+    new_values JSON,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (admin_id) REFERENCES users(user_id) ON DELETE SET NULL,
+    INDEX idx_created_at (created_at)
+);
+
+-- ============================================
+-- INSERT SAMPLE DATA
+-- ============================================
+
+-- Insert Admin User
+INSERT INTO users (first_name, last_name, email, password_hash, role, contact_number) VALUES
+('Admin', 'User', 'admin@colligo.com', '$2y$10$abcdefghijklmnopqrstuvwxyz1234567890', 'admin', '9876543210');
+
+-- Insert Sample Classes
+INSERT INTO classes (class_name, grade_level, section, capacity) VALUES
+('Class 1A', '1', 'A', 50),
+('Class 1B', '1', 'B', 45),
+('Class 2A', '2', 'A', 48),
+('Class 2B', '2', 'B', 50);
+
+-- Insert Sample Teacher
+INSERT INTO users (first_name, last_name, email, password_hash, role, contact_number) VALUES
+('Rahul', 'Kumar', 'teacher@colligo.com', '$2y$10$abcdefghijklmnopqrstuvwxyz1234567890', 'teacher', '9876543211');
+
+INSERT INTO teachers (teacher_id, user_id, specialization, qualification, experience_years, department) VALUES
+(1, 2, 'Mathematics', 'B.Ed', 5, 'Science');
+
+-- Insert Sample Students
+INSERT INTO users (first_name, last_name, email, password_hash, role, contact_number) VALUES
+('John', 'Doe', 'student1@colligo.com', '$2y$10$abcdefghijklmnopqrstuvwxyz1234567890', 'student', '9876543212'),
+('Jane', 'Smith', 'student2@colligo.com', '$2y$10$abcdefghijklmnopqrstuvwxyz1234567890', 'student', '9876543213');
+
+INSERT INTO students (user_id, class_id, enrollment_number, roll_number, level) VALUES
+(3, 1, 'ENR001', 1, 'primary'),
+(4, 1, 'ENR002', 2, 'primary');
